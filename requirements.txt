@@ -1,0 +1,4 @@
+pandas
+plotly
+PySide6
+qdarktheme
