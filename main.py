@@ -7,7 +7,7 @@ import time
 from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QListWidget, QLineEdit, QAbstractItemView, QCheckBox, QTableWidgetItem, QTableWidget, QHBoxLayout, QLabel
 from PySide6.QtCore import QSettings, Qt, QObject, Signal
 import sys
-from qt_material import apply_stylesheet
+sys.argv += ['-platform', 'windows:darkmode=2']
 
 # Make directory for saved data if it doesn't exist
 if not os.path.exists("Saved_Data"):
@@ -267,8 +267,8 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
   app = QApplication(sys.argv)
+  app.setStyle('Fusion')
   window = MainWindow()
-  #apply_stylesheet(app, theme='default_dark.xml')
   window.show()
   app.exec()
 
