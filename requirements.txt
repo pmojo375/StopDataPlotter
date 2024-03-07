@@ -1,4 +1,4 @@
 pandas
 plotly
 PySide6
-qdarktheme
+qt-material

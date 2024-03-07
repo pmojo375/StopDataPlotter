@@ -4,9 +4,10 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import os
 import time
-from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QListWidget, QLineEdit, QAbstractItemView, QCheckBox, QTableWidgetItem, QTableWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QListWidget, QLineEdit, QAbstractItemView, QCheckBox, QTableWidgetItem, QTableWidget, QHBoxLayout, QLabel
 from PySide6.QtCore import QSettings, Qt, QObject, Signal
-import qdarktheme
+import sys
+from qt_material import apply_stylesheet
 
 # Make directory for saved data if it doesn't exist
 if not os.path.exists("Saved_Data"):
@@ -51,7 +52,8 @@ def plot_data(files, subplot_mode, save_images, save_html, show_plots, scaling_h
         subplot_titles.append(f"{titles[f.replace(path, '')]} - {timestamp}")
       else:
         subplot_titles.append(f"{f.replace(path, '')} - {timestamp}")
-    else:
+    
+    if plot_data:
       fig = go.Figure()
       fig.add_trace(go.Scatter(x=df['Time'], y=df['X'], name='X', mode='lines', line=dict(color='#636EFA'), hovertemplate="Time=%{x}<br>Force=%{y}"))
       fig.add_trace(go.Scatter(x=df['Time'], y=df['Y'], name='Y', mode='lines', line=dict(color='#EF553B'), hovertemplate="Time=%{x}<br>Force=%{y}"))
@@ -78,9 +80,9 @@ def plot_data(files, subplot_mode, save_images, save_html, show_plots, scaling_h
       fig.update_legends()
 
       if save_images:
-        fig.write_image(f"images/{titles[f.replace(path, '')]}.png", width=1920, height=1080)
+        fig.write_image(f"Saved_Data/{titles[f.replace(path, '')]}.png", width=1920, height=1080)
       if save_html:
-        fig.write_html(f"images/{titles[f.replace(path, '')]}.html")
+        fig.write_html(f"Saved_Data/{titles[f.replace(path, '')]}.html")
       if show_plots:
         fig.show()
 
@@ -102,9 +104,9 @@ def plot_data(files, subplot_mode, save_images, save_html, show_plots, scaling_h
     subplot_fig.update_yaxes(range=[-.16, .16])
     
     if save_images:
-      subplot_fig.write_image(f"images/subplot.png", width=1920, height=1080)
+      subplot_fig.write_image(f"Saved_Data/subplot.png", width=1920, height=1080)
     if save_html:
-      subplot_fig.write_html(f"images/subplot.html")
+      subplot_fig.write_html(f"Saved_Data/subplot.html")
     if show_plots:
       subplot_fig.show()
 
@@ -114,6 +116,8 @@ class SettingsManager(QObject):
   def load_settings(self, main_window=None):
     try:
       main_window.titles = main_window.settings.value("titles")
+      main_window.path = main_window.settings.value("path", "D:\\GCDC\\")
+      main_window.path_input.setText(main_window.path)
       self.settings_loaded.emit()
     except:
       pass
@@ -126,14 +130,21 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Stop Data Analysis")
 
         self.titles = {}
+        
+        self.path = ''
         self.settings = QSettings("PM Development", "Stop Data Analysis")
 
-        self.setGeometry(100, 100, 400, 600)
+        self.setGeometry(100, 100, 400, 900)
+
+        self.button_layout = QHBoxLayout()
+        self.path_layout = QHBoxLayout()
 
         self.selection_list = QListWidget()
         self.selection_list.setSelectionMode(QAbstractItemView.MultiSelection)
         self.add_button = QPushButton("Add To List")
         self.add_button.clicked.connect(self.add_to_list)
+        self.path_input = QLineEdit()
+        self.path_label = QLabel("Path")
         self.remove_button = QPushButton("Remove From List")
         self.remove_button.clicked.connect(self.remove_from_list)
         self.plot_data_button = QPushButton("Plot Data")
@@ -145,18 +156,23 @@ class MainWindow(QMainWindow):
 
         self.file_table.horizontalHeader().setStretchLastSection(True)
 
-        self.plot_checkbox = QCheckBox("Plot Data")
+        self.plot_checkbox = QCheckBox("Plot Separately")
         self.plot_checkbox.setChecked(True)
         self.html_checkbox = QCheckBox("Save HTML")
         self.image_checkbox = QCheckBox("Save Images")
-        self.subplot_checkbox = QCheckBox("Subplot Mode")
+        self.subplot_checkbox = QCheckBox("Plot All Together")
 
         self.layout = QVBoxLayout()
+        self.button_layout.addWidget(self.add_button)
+        self.button_layout.addWidget(self.remove_button)
+
+        self.path_layout.addWidget(self.path_label)
+        self.path_layout.addWidget(self.path_input)
 
         self.layout.addWidget(self.file_table)
+        self.layout.addLayout(self.path_layout)
         self.layout.addWidget(self.get_files_button)
-        self.layout.addWidget(self.add_button)
-        self.layout.addWidget(self.remove_button)
+        self.layout.addLayout(self.button_layout)
         self.layout.addWidget(self.selection_list)
         self.layout.addWidget(self.plot_checkbox)
         self.layout.addWidget(self.html_checkbox)
@@ -205,57 +221,54 @@ class MainWindow(QMainWindow):
 
       
     def plot_data(self):
-        self.results.setText("Plotting Data")
-
-        path = "D:\\GCDC\\"
-
         plot = self.plot_checkbox.isChecked()
         html = self.html_checkbox.isChecked()
         image = self.image_checkbox.isChecked()
         subplot = self.subplot_checkbox.isChecked()
 
-        selected_files = [f"{path}{self.selection_list.item(i).text()}" for i in range(self.selection_list.count())]
+        selected_files = [f"{self.path_input.text()}{self.selection_list.item(i).text()}" for i in range(self.selection_list.count())]
 
         self.save_titles()
 
         # Process the file prompt input
         plot_data(selected_files, subplot, image, html, plot, True, self.titles)
-        
-
-    def write_to_results(self, text):
-        self.results.append(text)
 
 
     def get_files(self):
       self.csv_files = []
-      for file in os.listdir("D:\GCDC"):
-        if file.endswith(".csv") or file.endswith(".CSV"):
-          self.csv_files.append(file)
+      try:
+        for file in os.listdir(self.path_input.text()):
+          if file.endswith(".csv") or file.endswith(".CSV"):
+            self.csv_files.append(file)
 
-      self.file_table.clear()
+        self.file_table.clear()
 
-      row_count = 0
+        row_count = 0
 
-      for file in self.csv_files:
-        self.file_table.insertRow(row_count)
-        self.file_table.setItem(row_count, 0, QTableWidgetItem(file))
-        if file in self.titles:
-          self.file_table.setItem(row_count, 1, QTableWidgetItem(self.titles[file].replace('D:\\GCDC\\', '')))
-        else:
-          self.file_table.setItem(row_count, 1, QTableWidgetItem(file))
-      
-      self.file_table.horizontalHeader().setStretchLastSection(True)
-      self.file_table.resizeColumnsToContents()
-      for row in range(self.file_table.rowCount()):
-        item = self.file_table.item(row, 1)
-        item.setFlags(item.flags() | Qt.ItemIsEditable)
-      
-      self.file_table.setHorizontalHeaderLabels(["File", "Title"])
+        for file in self.csv_files:
+          self.file_table.insertRow(row_count)
+          self.file_table.setItem(row_count, 0, QTableWidgetItem(file))
+          if file in self.titles:
+            self.file_table.setItem(row_count, 1, QTableWidgetItem(self.titles[file].replace(self.path_input.text(), '')))
+          else:
+            self.file_table.setItem(row_count, 1, QTableWidgetItem(file))
+        
+        self.file_table.horizontalHeader().setStretchLastSection(True)
+        self.file_table.resizeColumnsToContents()
+        for row in range(self.file_table.rowCount()):
+          item = self.file_table.item(row, 1)
+          item.setFlags(item.flags() | Qt.ItemIsEditable)
+        
+        self.file_table.setHorizontalHeaderLabels(["File", "Title"])
+        
+        self.settings.setValue("path", self.path_input.text())
+      except:
+        print("Error getting files")
 
 if __name__ == "__main__":
-  app = QApplication([])
+  app = QApplication(sys.argv)
   window = MainWindow()
-  qdarktheme.setup_theme()
+  #apply_stylesheet(app, theme='default_dark.xml')
   window.show()
-  app.exec_()
+  app.exec()
 
